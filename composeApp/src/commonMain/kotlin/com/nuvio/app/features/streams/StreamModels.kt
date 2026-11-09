@@ -319,6 +319,7 @@ data class StreamsUiState(
     val activeAddonIds: Set<String> = emptySet(),
     val selectedFilter: String? = null,
     val isAnyLoading: Boolean = false,
+    val isBootstrapping: Boolean = false,
     val emptyStateReason: StreamsEmptyStateReason? = null,
     val autoPlayStream: StreamItem? = null,
     val autoPlayCandidates: List<StreamItem> = emptyList(),

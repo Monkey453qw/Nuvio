@@ -90,7 +90,9 @@ import com.nuvio.app.features.watchprogress.WatchProgressEntry
 import com.nuvio.app.features.watched.WatchedRepository
 import com.nuvio.app.features.watched.watchedItemKeys
 import com.nuvio.app.navigation.LocalUseNativeNavigation
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
@@ -131,32 +133,23 @@ fun StreamsScreen(
 ) {
     val useNativeNavigation = LocalUseNativeNavigation.current
     val uiState by StreamsRepository.uiState.collectAsStateWithLifecycle()
-    val streamDisplaySettings by remember {
-        StreamBadgeSettingsRepository.ensureLoaded()
-        StreamBadgeSettingsRepository.uiState
-    }.collectAsStateWithLifecycle()
-    val playerSettings by remember {
-        PlayerSettingsRepository.ensureLoaded()
-        PlayerSettingsRepository.uiState
-    }.collectAsStateWithLifecycle()
-    val debridSettings by remember {
-        DebridSettingsRepository.ensureLoaded()
-        DebridSettingsRepository.uiState
-    }.collectAsStateWithLifecycle()
-    val watchProgressUiState by remember {
-        WatchProgressRepository.ensureLoaded()
-        WatchProgressRepository.uiState
-    }.collectAsStateWithLifecycle()
-    val metaScreenSettings by remember {
-        MetaScreenSettingsRepository.ensureLoaded()
-        MetaScreenSettingsRepository.uiState
-    }.collectAsStateWithLifecycle()
-    val watchedUiState by remember {
-        WatchedRepository.ensureLoaded()
-        WatchedRepository.uiState
-    }.collectAsStateWithLifecycle()
-    remember {
-        DownloadsRepository.ensureLoaded()
+    val streamDisplaySettings by StreamBadgeSettingsRepository.uiState.collectAsStateWithLifecycle()
+    val playerSettings by PlayerSettingsRepository.uiState.collectAsStateWithLifecycle()
+    val debridSettings by DebridSettingsRepository.uiState.collectAsStateWithLifecycle()
+    val watchProgressUiState by WatchProgressRepository.uiState.collectAsStateWithLifecycle()
+    val metaScreenSettings by MetaScreenSettingsRepository.uiState.collectAsStateWithLifecycle()
+    val watchedUiState by WatchedRepository.uiState.collectAsStateWithLifecycle()
+
+    // Warm up screen-wide repositories off the main thread so first composition
+    // never blocks on disk IO; the collected flows above update as each loads.
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.Default) {
+            StreamBadgeSettingsRepository.ensureLoaded()
+            WatchProgressRepository.ensureLoaded()
+            WatchedRepository.ensureLoaded()
+            MetaScreenSettingsRepository.ensureLoaded()
+            DownloadsRepository.ensureLoaded()
+        }
     }
     val isEpisode = seasonNumber != null && episodeNumber != null
     val clipboardManager = LocalClipboardManager.current
@@ -713,10 +706,7 @@ internal fun StreamList(
     val checkingMoreAddonsText = stringResource(Res.string.streams_checking_more_addons)
     val formatStreamSize = rememberStreamSizeLabelFormat()
     val sharedStream = LocalSharedStream.current
-    val streamBadgeSettings by remember {
-        StreamBadgeSettingsRepository.ensureLoaded()
-        StreamBadgeSettingsRepository.uiState
-    }.collectAsStateWithLifecycle()
+    val streamBadgeSettings by StreamBadgeSettingsRepository.uiState.collectAsStateWithLifecycle()
 
     CompositionLocalProvider(LocalStreamSizeLabelFormat provides formatStreamSize) {
     LazyColumn(
@@ -750,6 +740,12 @@ internal fun StreamList(
             }
         }
         when {
+            uiState.isBootstrapping -> {
+                item {
+                    LoadingStateBlock(findingStreamsText = findingStreamsText)
+                }
+            }
+
             hasGroups && anyLoading && !hasAnyStreams -> {
                 item {
                     LoadingStateBlock(findingStreamsText = findingStreamsText)

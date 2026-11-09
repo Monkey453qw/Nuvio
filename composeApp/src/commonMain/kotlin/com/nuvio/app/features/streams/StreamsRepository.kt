@@ -75,12 +75,6 @@ object StreamsRepository {
     }
 
     private fun load(type: String, videoId: String, parentMetaId: String?, season: Int?, episode: Int?, manualSelection: Boolean, forceRefresh: Boolean) {
-        val pluginUiState = if (AppFeaturePolicy.pluginsEnabled) {
-            PluginRepository.initialize()
-            PluginRepository.uiState.value
-        } else {
-            PluginsUiState(pluginsEnabled = false)
-        }
         val requestToken = requestToken(
             type = type,
             videoId = videoId,
@@ -88,7 +82,10 @@ object StreamsRepository {
             episode = episode,
             manualSelection = manualSelection,
         )
-        val requestKey = "$requestToken::pluginsGrouped=${pluginUiState.groupStreamsByRepository}"
+        // Cheap gate: intentionally computed without PluginRepository.initialize()
+        // (manifest parsing / disk IO) so the caller thread never blocks. The key is
+        // refreshed with the authoritative grouping value inside the coroutine below.
+        val requestKey = "$requestToken::pluginsGrouped=${PluginRepository.uiState.value.groupStreamsByRepository}"
         val currentState = _uiState.value
         if (
             !forceRefresh &&
@@ -101,8 +98,27 @@ object StreamsRepository {
 
         activeRequestKey = requestKey
         activeJob?.cancel()
+        // Publish bootstrapping state immediately so the screen renders skeleton
+        // placeholders right away; the heavy prologue runs off the caller thread.
+        _uiState.value = StreamsUiState(
+            requestToken = requestToken,
+            isAnyLoading = true,
+            isBootstrapping = true,
+        )
+
+        activeJob = scope.launch {
+        val pluginUiState = if (AppFeaturePolicy.pluginsEnabled) {
+            PluginRepository.initialize()
+            PluginRepository.uiState.value
+        } else {
+            PluginsUiState(pluginsEnabled = false)
+        }
+        // Refresh the dedupe key with the authoritative grouping value, but only
+        // when no newer request (different token) has superseded this one.
+        if (activeRequestKey?.startsWith("$requestToken::") == true) {
+            activeRequestKey = "$requestToken::pluginsGrouped=${pluginUiState.groupStreamsByRepository}"
+        }
         StreamSourceFilterMemory.seedFor(titleKey = "$type::$videoId")
-        _uiState.value = StreamsUiState(requestToken = requestToken)
 
         PlayerSettingsRepository.ensureLoaded()
         val playerSettings = PlayerSettingsRepository.uiState.value
@@ -163,7 +179,7 @@ object StreamsRepository {
                 activeAddonIds = setOf("embedded"),
                 isAnyLoading = false,
             )
-            return
+            return@launch
         }
 
         val isNativeServerRequest = ServerStreams.isNativeRequest(videoId)
@@ -187,7 +203,7 @@ object StreamsRepository {
                 emptyStateReason = StreamsEmptyStateReason.NoAddonsInstalled,
                 autoPlayDecided = true,
             )
-            return
+            return@launch
         }
 
         val streamAddons = installedAddons
@@ -211,7 +227,7 @@ object StreamsRepository {
                 emptyStateReason = StreamsEmptyStateReason.NoCompatibleAddons,
                 autoPlayDecided = true,
             )
-            return
+            return@launch
         }
 
         // Initialise loading placeholders
@@ -243,7 +259,6 @@ object StreamsRepository {
             showDirectAutoPlayOverlay = isDirectAutoPlayFlow,
         )
 
-        activeJob = scope.launch {
             val completions = Channel<StreamLoadCompletion>(capacity = Channel.BUFFERED)
             val pluginRemainingByAddonId = pluginProviderGroups
                 .associate { it.addonId to it.scrapers.size }
@@ -695,6 +710,7 @@ object StreamsRepository {
                 current.copy(
                     groups = updatedGroups,
                     isAnyLoading = false,
+                    isBootstrapping = false,
                     emptyStateReason = if (updatedGroups.isEmpty()) {
                         current.emptyStateReason
                     } else {
