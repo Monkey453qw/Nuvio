@@ -5,7 +5,7 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import com.nuvio.app.core.diagnostics.SentryNetworkBreadcrumbInterceptor
-import com.nuvio.app.core.network.IPv4FirstDns
+import com.nuvio.app.core.network.ResilientDns
 import com.nuvio.app.core.network.NetworkErrorInterceptor
 import okhttp3.OkHttpClient
 import java.net.HttpURLConnection
@@ -46,7 +46,10 @@ internal object PlayerPlaybackNetworking {
 
     private val playbackHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
-            .dns(IPv4FirstDns())
+            // ResilientDns: proxied requests skip DNS entirely (OkHttp default),
+            // and direct lookups fall back to DoH when the network has no working
+            // DNS (NetShare-style proxy-only hotspots).
+            .dns(ResilientDns)
             .sslSocketFactory(sslContext.socketFactory, trustAllManager)
             .hostnameVerifier(playbackHostnameVerifier)
             .connectTimeout(15, TimeUnit.SECONDS)

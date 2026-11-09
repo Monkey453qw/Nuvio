@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
+import com.nuvio.app.core.network.SystemProxy
 import com.nuvio.app.features.streams.redactedForLogs
 import kotlinx.coroutines.runBlocking
 import nuvio.composeapp.generated.resources.*
@@ -1775,6 +1776,7 @@ private class NuvioLibmpvView(
 
     private fun loadCurrentSourceNow(playWhenReady: Boolean) {
         val sourceUrl = currentSourceUrl ?: return
+        applyMpvProxyNow(sourceUrl)
         applyRequestHeadersNow(currentRequestHeaders)
         setPausedNow(!playWhenReady)
         mpv.setPropertyString("aid", "auto")
@@ -1783,6 +1785,22 @@ private class NuvioLibmpvView(
             mpv.command("audio-add", sourceAudioUrl.toMpvSource(), "auto")
         }
         setPausedNow(!playWhenReady)
+    }
+
+    /**
+     * NetShare-style proxy-only hotspots: libmpv ignores the Android system HTTP
+     * proxy and resolves DNS itself, which blocks forever on a network that has
+     * no working DNS (Android Private DNS / DoT cannot run there either). Hand
+     * mpv the same proxy every OkHttp request already uses, so playback works
+     * with zero local DNS. No-op on normal networks (no system proxy), and
+     * loopback/LAN targets stay direct — see SystemProxy.mpvProxyForUrl.
+     */
+    private fun applyMpvProxyNow(url: String) {
+        val proxy = runCatching { SystemProxy.mpvProxyForUrl(context, url) }.getOrNull()
+        mpv.setPropertyString("http-proxy", proxy ?: "")
+        if (proxy != null) {
+            Log.i("PlayerEngine", "libmpv using system HTTP proxy for stream")
+        }
     }
 
     fun attachStartupSubtitles() {

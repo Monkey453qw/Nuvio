@@ -10,10 +10,13 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import okhttp3.Call
+import com.nuvio.app.core.network.ResilientDns
 import okhttp3.OkHttpClient
 import okhttp3.Request
 
 internal val downloadHttpClient = OkHttpClient.Builder()
+    // ResilientDns keeps downloads working on proxy-only hotspot networks.
+    .dns(ResilientDns)
     .connectTimeout(60, TimeUnit.SECONDS)
     .readTimeout(60, TimeUnit.SECONDS)
     .writeTimeout(60, TimeUnit.SECONDS)
