@@ -1,0 +1,50 @@
+name: Build custom branch APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-custom-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Assemble full release APKs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Configure signing properties
+        run: |
+          keystore_path="${RUNNER_TEMP}/nuvio-custom-release.jks"
+          cp keystore/nuvio-custom-release.jks "${keystore_path}"
+          cat > local.properties <<EOF
+          NUVIO_RELEASE_STORE_FILE=${keystore_path}
+          NUVIO_RELEASE_STORE_PASSWORD=NuvioCustom2026
+          NUVIO_RELEASE_KEY_ALIAS=nuvio-custom
+          NUVIO_RELEASE_KEY_PASSWORD=NuvioCustom2026
+          EOF
+
+      - name: Build full release APKs
+        run: ./gradlew :androidApp:assembleFullRelease --stacktrace
+
+      - name: Upload APK artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuvio-custom-apks
+          path: androidApp/build/outputs/apk/full/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
