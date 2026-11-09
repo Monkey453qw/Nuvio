@@ -49,7 +49,7 @@ internal object PlayerPlaybackNetworking {
             // ResilientDns: proxied requests skip DNS entirely (OkHttp default),
             // and direct lookups fall back to DoH when the network has no working
             // DNS (NetShare-style proxy-only hotspots).
-            .dns(ResilientDns)
+            .dns(ResilientDns())
             .sslSocketFactory(sslContext.socketFactory, trustAllManager)
             .hostnameVerifier(playbackHostnameVerifier)
             .connectTimeout(15, TimeUnit.SECONDS)

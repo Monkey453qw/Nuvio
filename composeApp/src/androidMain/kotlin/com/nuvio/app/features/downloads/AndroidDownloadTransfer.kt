@@ -15,8 +15,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 
 internal val downloadHttpClient = OkHttpClient.Builder()
-    // ResilientDns keeps downloads working on proxy-only hotspot networks.
-    .dns(ResilientDns)
+    // ResilientDns: proxied requests skip DNS entirely (OkHttp default), and
+    // direct lookups fall back to DoH when the network has no working DNS
+    // (NetShare-style proxy-only hotspots).
+    .dns(ResilientDns())
     .connectTimeout(60, TimeUnit.SECONDS)
     .readTimeout(60, TimeUnit.SECONDS)
     .writeTimeout(60, TimeUnit.SECONDS)

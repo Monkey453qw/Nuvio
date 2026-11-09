@@ -21,7 +21,6 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.net.Proxy
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
@@ -103,7 +102,9 @@ internal object AddonHttpClientProvider {
 
 private fun buildAddonHttpClient(cache: Cache? = null): OkHttpClient =
     OkHttpClient.Builder()
-        .dns(ResilientDns)
+        // ResilientDns: direct lookups fall back to DoH when the network has no
+        // working DNS (NetShare-style proxy-only hotspots).
+        .dns(ResilientDns())
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
@@ -111,7 +112,11 @@ private fun buildAddonHttpClient(cache: Cache? = null): OkHttpClient =
         .followSslRedirects(true)
         .addInterceptor(NetworkErrorInterceptor())
         .addInterceptor(SentryNetworkBreadcrumbInterceptor())
-        .proxy(Proxy.NO_PROXY)
+        // NO_PROXY removed: it hard-bypassed the Android system HTTP proxy, so on
+        // NetShare-style proxy-only hotspots (no local DNS, Wi-Fi proxy as the only
+        // route out) every addon/plugin request froze. Without this line OkHttp
+        // uses the default ProxySelector — the system proxy when one is set, direct
+        // otherwise. Loopback targets are never proxied by Android's selector.
         .apply {
             if (cache != null) {
                 cache(cache)
