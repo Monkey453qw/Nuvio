@@ -13,6 +13,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nuvio.app.core.ui.nuvio
 import com.nuvio.app.features.streams.StreamItem
+import com.nuvio.app.features.streams.StreamSourceFilterMemory
+import com.nuvio.app.features.streams.StreamSourceFilterRow
+import com.nuvio.app.features.streams.StreamSourceFilters
 import com.nuvio.app.features.streams.StreamsUiState
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_close
@@ -84,6 +87,10 @@ fun PlayerSourcesPanel(
                 streamsUiState = streamsUiState,
                 onFilterSelected = onFilterSelected,
                 onRefresh = onReload,
+            )
+
+            StreamSourceFilterRow(
+                availableStreams = streamsUiState.filteredGroups.flatMap { it.streams },
             )
 
             Spacer(Modifier.height(16.dp))

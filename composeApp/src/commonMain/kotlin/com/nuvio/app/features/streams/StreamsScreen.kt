@@ -469,6 +469,9 @@ private fun MobileStreamsLayout(
                     onFilterSelected = { addonId -> StreamsRepository.selectFilter(addonId) },
                     onRefresh = onRefresh,
                 )
+                StreamSourceFilterRow(
+                    availableStreams = uiState.filteredGroups.flatMap { it.streams },
+                )
                 StreamList(
                     uiState = uiState,
                     debridEnabled = debridEnabled,
@@ -696,7 +699,11 @@ internal fun StreamList(
     resumeProgressFraction: Float?,
     modifier: Modifier = Modifier,
 ) {
-    val filteredGroups = uiState.filteredGroups
+    val filterSelection by StreamSourceFilterMemory.selection.collectAsStateWithLifecycle()
+    val filteredGroups = remember(
+        uiState.filteredGroups,
+        filterSelection,
+    ) { StreamSourceFilters.applyTo(uiState.filteredGroups, filterSelection) }
     val hasGroups = filteredGroups.isNotEmpty()
     val hasAnyStreams = filteredGroups.any { it.streams.isNotEmpty() }
     val anyLoading = filteredGroups.any { it.isLoading }

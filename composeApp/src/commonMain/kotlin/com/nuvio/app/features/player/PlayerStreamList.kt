@@ -25,6 +25,8 @@ import com.nuvio.app.features.streams.StreamBadgeSettingsRepository
 import com.nuvio.app.features.streams.StreamCard
 import com.nuvio.app.features.streams.StreamCardSkeleton
 import com.nuvio.app.features.streams.StreamItem
+import com.nuvio.app.features.streams.StreamSourceFilterMemory
+import com.nuvio.app.features.streams.StreamSourceFilters
 import com.nuvio.app.features.streams.StreamsUiState
 import com.nuvio.app.features.streams.isSelectableForPlayback
 import com.nuvio.app.features.streams.rememberStreamSizeLabelFormat
@@ -54,8 +56,11 @@ internal fun PlayerStreamList(
         StreamBadgeSettingsRepository.ensureLoaded()
         StreamBadgeSettingsRepository.uiState
     }.collectAsStateWithLifecycle()
-    val streams = streamsUiState.allStreams
-    val visibleGroups = streamsUiState.filteredGroups
+    val rawStreams = streamsUiState.allStreams
+    val rawGroups = streamsUiState.filteredGroups
+    val filterSelection by StreamSourceFilterMemory.selection.collectAsStateWithLifecycle()
+    val streams = remember(rawStreams, filterSelection) { rawStreams.filter { StreamSourceFilters.matches(it, filterSelection) } }
+    val visibleGroups = remember(rawGroups, filterSelection) { StreamSourceFilters.applyTo(rawGroups, filterSelection) }
 
     when {
         streams.isEmpty() && streamsUiState.isAnyLoading -> {

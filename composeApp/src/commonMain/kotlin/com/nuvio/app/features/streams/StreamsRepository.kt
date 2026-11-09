@@ -101,6 +101,7 @@ object StreamsRepository {
 
         activeRequestKey = requestKey
         activeJob?.cancel()
+        StreamSourceFilterMemory.seedFor(titleKey = "$type::$videoId")
         _uiState.value = StreamsUiState(requestToken = requestToken)
 
         PlayerSettingsRepository.ensureLoaded()

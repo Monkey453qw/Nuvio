@@ -137,7 +137,7 @@ private fun RefreshChip(
 }
 
 @Composable
-private fun FilterChip(
+internal fun FilterChip(
     label: String? = null,
     icon: ImageVector? = null,
     contentDescription: String? = null,

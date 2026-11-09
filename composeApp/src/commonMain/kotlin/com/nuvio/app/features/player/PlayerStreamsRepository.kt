@@ -19,6 +19,7 @@ import com.nuvio.app.features.streams.AddonStreamGroup
 import com.nuvio.app.features.streams.InstalledStreamAddonTarget
 import com.nuvio.app.features.streams.StreamAutoPlaySelector
 import com.nuvio.app.features.streams.StreamBadgePresentation
+import com.nuvio.app.features.streams.StreamSourceFilterMemory
 import com.nuvio.app.features.streams.StreamBadgeSettingsRepository
 import com.nuvio.app.features.streams.StreamItem
 import com.nuvio.app.features.streams.StreamLoadCompletion
@@ -208,6 +209,7 @@ object PlayerStreamsRepository {
 
         setRequestKey(requestKey)
         jobHolder()?.cancel()
+        StreamSourceFilterMemory.seedFor(titleKey = "$type::$videoId")
         stateFlow.value = StreamsUiState()
 
         val streamBadgeRules = StreamBadgeSettingsRepository.snapshot()

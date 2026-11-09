@@ -214,6 +214,10 @@ internal fun TabletStreamsLayout(
                                 onRefresh = onRefresh,
                             )
 
+                            StreamSourceFilterRow(
+                                availableStreams = uiState.filteredGroups.flatMap { it.streams },
+                            )
+
                             ActiveScrapersStatusBlock(
                                 groups = uiState.groups,
                                 modifier = Modifier.padding(bottom = 4.dp),
