@@ -27,9 +27,22 @@ import com.nuvio.app.features.watchprogress.WatchProgressRepository
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.Res
 import nuvio.composeapp.generated.resources.action_cancel
+import nuvio.composeapp.generated.resources.settings_advanced_backup_export
+import nuvio.composeapp.generated.resources.settings_advanced_backup_export_done
+import nuvio.composeapp.generated.resources.settings_advanced_backup_export_failed
+import nuvio.composeapp.generated.resources.settings_advanced_backup_export_subtitle
+import nuvio.composeapp.generated.resources.settings_advanced_backup_import
+import nuvio.composeapp.generated.resources.settings_advanced_backup_import_done
+import nuvio.composeapp.generated.resources.settings_advanced_backup_import_failed
+import nuvio.composeapp.generated.resources.settings_advanced_backup_import_invalid
+import nuvio.composeapp.generated.resources.settings_advanced_backup_import_subtitle
+import nuvio.composeapp.generated.resources.settings_advanced_backup_restore_confirm
+import nuvio.composeapp.generated.resources.settings_advanced_backup_restore_dialog_subtitle
+import nuvio.composeapp.generated.resources.settings_advanced_backup_restore_dialog_title
 import nuvio.composeapp.generated.resources.settings_advanced_clear_cw_cache
 import nuvio.composeapp.generated.resources.settings_advanced_clear_cw_cache_done
 import nuvio.composeapp.generated.resources.settings_advanced_clear_cw_cache_subtitle
+import nuvio.composeapp.generated.resources.settings_advanced_section_backup
 import nuvio.composeapp.generated.resources.settings_advanced_remember_last_profile
 import nuvio.composeapp.generated.resources.settings_advanced_remember_last_profile_description
 import nuvio.composeapp.generated.resources.settings_advanced_section_cache
@@ -138,6 +151,108 @@ internal fun LazyListScope.advancedSettingsContent(
                     },
                 )
             }
+        }
+    }
+    if (BackupRestoreRepository.isSupported) {
+        item {
+            var exportState by rememberSaveable { mutableStateOf(BACKUP_STATE_IDLE) }
+            var importState by rememberSaveable { mutableStateOf(BACKUP_STATE_IDLE) }
+            var showRestoreDialog by rememberSaveable { mutableStateOf(false) }
+            val exportBackup = rememberBackupExportLauncher { result ->
+                exportState = if (result.isSuccess) {
+                    BACKUP_STATE_DONE
+                } else {
+                    BACKUP_STATE_FAILED
+                }
+            }
+            val importBackup = rememberBackupImportLauncher { result ->
+                importState = when {
+                    result.isSuccess -> BACKUP_STATE_DONE
+                    result.exceptionOrNull() is BackupFormatException -> BACKUP_STATE_INVALID
+                    else -> BACKUP_STATE_FAILED
+                }
+            }
+
+            SettingsSection(
+                title = stringResource(Res.string.settings_advanced_section_backup),
+                isTablet = isTablet,
+            ) {
+                SettingsGroup(isTablet = isTablet) {
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.settings_advanced_backup_export),
+                        description = stringResource(
+                            when (exportState) {
+                                BACKUP_STATE_DONE -> Res.string.settings_advanced_backup_export_done
+                                BACKUP_STATE_FAILED -> Res.string.settings_advanced_backup_export_failed
+                                else -> Res.string.settings_advanced_backup_export_subtitle
+                            },
+                        ),
+                        isTablet = isTablet,
+                        onClick = exportBackup,
+                    )
+                    SettingsGroupDivider(isTablet = isTablet)
+                    SettingsNavigationRow(
+                        title = stringResource(Res.string.settings_advanced_backup_import),
+                        description = stringResource(
+                            when (importState) {
+                                BACKUP_STATE_DONE -> Res.string.settings_advanced_backup_import_done
+                                BACKUP_STATE_FAILED -> Res.string.settings_advanced_backup_import_failed
+                                BACKUP_STATE_INVALID -> Res.string.settings_advanced_backup_import_invalid
+                                else -> Res.string.settings_advanced_backup_import_subtitle
+                            },
+                        ),
+                        isTablet = isTablet,
+                        onClick = { showRestoreDialog = true },
+                    )
+                }
+            }
+
+            if (showRestoreDialog) {
+                RestoreBackupDialog(
+                    onConfirm = {
+                        showRestoreDialog = false
+                        importBackup()
+                    },
+                    onDismiss = {
+                        showRestoreDialog = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+private const val BACKUP_STATE_IDLE = 0
+private const val BACKUP_STATE_DONE = 1
+private const val BACKUP_STATE_INVALID = 2
+private const val BACKUP_STATE_FAILED = 3
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun RestoreBackupDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val tokens = MaterialTheme.nuvio
+    DialogSurface(
+        onDismissRequest = onDismiss,
+        title = stringResource(Res.string.settings_advanced_backup_restore_dialog_title),
+    ) {
+        Text(
+            text = stringResource(Res.string.settings_advanced_backup_restore_dialog_subtitle),
+            style = MaterialTheme.typography.bodyLarge,
+            color = tokens.colors.textMuted,
+        )
+        DialogButtons {
+            DialogButton(
+                text = stringResource(Res.string.action_cancel),
+                onClick = onDismiss,
+            )
+            DialogButton(
+                text = stringResource(Res.string.settings_advanced_backup_restore_confirm),
+                onClick = onConfirm,
+                style = DialogButtonStyle.Primary,
+            )
         }
     }
 }
