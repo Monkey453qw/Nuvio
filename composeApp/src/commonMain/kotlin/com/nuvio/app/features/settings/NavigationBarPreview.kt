@@ -98,7 +98,7 @@ internal fun NavigationBarPreview(style: NavBarStyle, isTablet: Boolean, glowEna
             } else {
                 FloatingNavigationBar(
                     items = items,
-                    modifier = Modifier.align(if (isTablet) Alignment.TopCenter else Alignment.BottomCenter)
+                    modifier = Modifier.align(Alignment.BottomCenter)
                         .then(if (isTablet) Modifier.widthIn(max = 416.dp) else Modifier),
                     scrollState = barScrollState,
                     hazeState = hazeState,

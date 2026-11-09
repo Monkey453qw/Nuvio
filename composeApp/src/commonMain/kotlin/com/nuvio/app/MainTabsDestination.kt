@@ -2,12 +2,9 @@ package com.nuvio.app
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -23,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.nuvio.app.core.ui.floatingNavigationBarPadding
 import com.nuvio.app.core.ui.LocalNuvioBottomNavigationOverlayPadding
 import com.nuvio.app.core.ui.LocalNuvioNavBarScrollState
 import com.nuvio.app.core.ui.NuvioNavBarScrollState
@@ -109,7 +107,7 @@ internal fun MainTabsDestination(
                         onProfileSelected = onProfileSelected,
                         onAddProfileRequested = onAddProfileRequested,
                         hazeState = navBarHazeState,
-                        popupBelowAnchor = isTabletLayout,
+                        popupBelowAnchor = false,
                     )
                 },
             ),
@@ -159,7 +157,7 @@ internal fun MainTabsDestination(
         ) { innerPadding ->
             Box(modifier = Modifier.fillMaxSize()) {
                 CompositionLocalProvider(
-                    LocalNuvioBottomNavigationOverlayPadding provides if (useNativeBottomTabs) 49.dp else if (!isTabletLayout && navBarStyleSetting != NavBarStyle.CLASSIC) 72.dp else 0.dp,
+                    LocalNuvioBottomNavigationOverlayPadding provides if (useNativeBottomTabs) 49.dp else if (isTabletLayout) 72.dp else if (navBarStyleSetting != NavBarStyle.CLASSIC) 72.dp else 0.dp,
                     LocalNuvioNavBarScrollState provides navBarScrollState,
                 ) {
                     AppTabHost(
@@ -177,14 +175,14 @@ internal fun MainTabsDestination(
 
                 if (isTabletLayout && !useNativeBottomTabs) {
                     val tabletNavBarScrollState = remember { NuvioNavBarScrollState().apply { collapse() } }
+                    // The floating bar always sits at the bottom, on every device
+                    // and orientation, using the same bottom-insets padding as
+                    // the phone bar.
                     FloatingNavigationBar(
-                        modifier = Modifier.align(Alignment.TopCenter).widthIn(max = 416.dp),
+                        modifier = Modifier.align(Alignment.BottomCenter).widthIn(max = 416.dp),
                         scrollState = tabletNavBarScrollState,
                         hazeState = navBarHazeState,
-                        contentPadding = PaddingValues(
-                            top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 10.dp,
-                            bottom = 8.dp,
-                        ),
+                        contentPadding = floatingNavigationBarPadding(),
                         compactSize = true,
                         items = floatingNavigationItems,
                         glowEnabled = navBarGlowEnabled,
