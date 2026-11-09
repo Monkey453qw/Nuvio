@@ -115,7 +115,14 @@ android {
         abi {
             isEnable = buildsReleaseApks
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            // Optional Gradle-property override, e.g. -PnuvioAbiFilter=arm64-v8a —
+            // used by the custom build workflow to ship exactly one ABI.
+            val abiFilter = providers.gradleProperty("nuvioAbiFilter").orNull
+            if (abiFilter.isNullOrBlank()) {
+                include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            } else {
+                include(*abiFilter.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toTypedArray())
+            }
             isUniversalApk = false
         }
     }

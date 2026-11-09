@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: build-custom-${{ github.ref }}
@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   build:
-    name: Assemble full release APKs
+    name: Assemble arm64-v8a release APK
     runs-on: ubuntu-latest
     steps:
       - name: Check out
@@ -49,13 +49,50 @@ jobs:
           IMDB_TAPFRAME_API_BASE_URL=https://imdb.tapframe.space/
           EOF
 
-      - name: Build full release APKs
-        run: ./gradlew :androidApp:assembleFullRelease --stacktrace
+      - name: Build arm64-v8a release APK (single variant)
+        run: ./gradlew :androidApp:assembleFullRelease -PnuvioAbiFilter=arm64-v8a --stacktrace
 
-      - name: Upload APK artifacts
+      - name: Collect the single arm64-v8a APK
+        run: |
+          set -euo pipefail
+          cd androidApp/build/outputs/apk/full/release
+          ls -la
+          shopt -s nullglob
+          apks=(*arm64-v8a*.apk)
+          if [ ${#apks[@]} -ne 1 ]; then
+            echo "Expected exactly one arm64-v8a APK, found ${#apks[@]}: ${apks[*]}" >&2
+            exit 1
+          fi
+          mkdir -p "${RUNNER_TEMP}/out"
+          cp "${apks[0]}" "${RUNNER_TEMP}/out/Nuvio-arm64-v8a-release.apk"
+          sha256sum "${RUNNER_TEMP}/out/Nuvio-arm64-v8a-release.apk"
+
+      - name: Upload artifact (single arm64-v8a APK)
         uses: actions/upload-artifact@v4
         with:
-          name: nuvio-custom-apks
-          path: androidApp/build/outputs/apk/full/release/*.apk
+          name: nuvio-arm64-v8a
+          path: ${{ runner.temp }}/out/Nuvio-arm64-v8a-release.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Attach raw APK to release (no zip needed)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create custom-latest \
+            --target "$GITHUB_SHA" \
+            --title "Custom build (arm64-v8a)" \
+            --notes "Latest custom branch build. Single variant: arm64-v8a only." \
+            || true
+          gh release upload custom-latest \
+            "${RUNNER_TEMP}/out/Nuvio-arm64-v8a-release.apk" --clobber
+
+      - name: Summary
+        run: |
+          {
+            echo "### Build result"
+            echo ""
+            echo "- Single variant: **arm64-v8a** only (no other variants were built)."
+            echo "- Download the raw APK, no zip: **Releases → custom-latest → Nuvio-arm64-v8a-release.apk**."
+            echo "- Or from this run's artifact: **nuvio-arm64-v8a** (contains that same single APK)."
+          } >> "$GITHUB_STEP_SUMMARY"
