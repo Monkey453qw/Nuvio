@@ -87,6 +87,7 @@ internal fun UpdateChannelSettingsRow(isTablet: Boolean) {
                                     when (option) {
                                         UpdateChannel.STABLE -> Res.string.updates_channel_stable_description
                                         UpdateChannel.BETA -> Res.string.updates_channel_beta_description
+                                        UpdateChannel.CUSTOM -> Res.string.updates_channel_custom_description
                                     },
                                 ),
                                 style = MaterialTheme.typography.bodyMedium,
@@ -111,5 +112,6 @@ private fun updateChannelLabel(channel: UpdateChannel): String = stringResource(
     when (channel) {
         UpdateChannel.STABLE -> Res.string.updates_channel_stable
         UpdateChannel.BETA -> Res.string.updates_channel_beta
+        UpdateChannel.CUSTOM -> Res.string.updates_channel_custom
     },
 )

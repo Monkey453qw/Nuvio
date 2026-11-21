@@ -59,6 +59,25 @@ class ReleaseSelectorTest {
         assertEquals(listOf("1.1.0"), selected.map { it.tagName })
     }
 
+    @Test
+    fun `custom channel resolves the version from the fork release title`() {
+        val releases = listOf(
+            release(
+                tag = "custom-latest",
+                name = "Custom 1.1.0-beta.2-custom.42 (arm64-v8a)",
+                prerelease = true,
+            )
+        )
+
+        val selected = ReleaseSelector.eligibleReleases(releases, UpdateChannel.CUSTOM)
+
+        assertEquals(listOf("custom-latest"), selected.map { it.tagName })
+        assertEquals(
+            "1.1.0-beta.2-custom.42",
+            ReleaseSelector.releaseVersion(releases.single(), UpdateChannel.CUSTOM)?.toString(),
+        )
+    }
+
     private fun release(
         tag: String,
         name: String = tag,

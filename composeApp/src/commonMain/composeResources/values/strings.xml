@@ -728,6 +728,13 @@
     <string name="settings_nav_bar_style_expanded">Always Expanded</string>
     <string name="settings_nav_bar_style_compact">Always Compact</string>
     <string name="settings_nav_bar_style_classic">Classic</string>
+    <string name="settings_nav_bar_style_sidebar">Sidebar</string>
+    <string name="settings_nav_bar_style_sidebar_description">Tablet only: a rail on the left with Home, Search, Library, Addons and Profile. It can be expanded or collapsed.</string>
+    <string name="settings_nav_bar_style_bottom_bar">Bottom bar</string>
+    <string name="settings_nav_bar_style_bottom_bar_description">Tablet only: the floating bar stays at the bottom of the screen.</string>
+    <string name="settings_nav_bar_tablet_style_title">Tablet navigation</string>
+    <string name="sidebar_navigation_expand">Expand sidebar</string>
+    <string name="sidebar_navigation_collapse">Collapse sidebar</string>
     <string name="settings_appearance_continue_watching_description">Settings for the Continue Watching section.</string>
     <string name="settings_appearance_liquid_glass">Liquid Glass</string>
     <string name="settings_appearance_liquid_glass_description">Use the native iPhone tab bar on iOS 26 and later.</string>
@@ -2387,6 +2394,8 @@
     <string name="updates_channel_beta">Beta</string>
     <string name="updates_channel_stable_description">Intended for everyday use.</string>
     <string name="updates_channel_beta_description">Early updates that may contain bugs, break features, or behave unexpectedly.</string>
+    <string name="updates_channel_custom">Custom build</string>
+    <string name="updates_channel_custom_description">Builds from this fork (Monkey453qw/Nuvio), with the extra patches and fixes kept on top of the latest official code.</string>
     <string name="updates_waiting_for_stable">You’ll receive the next stable release when it becomes available</string>
     <string name="updates_release_missing_title">Release has no tag or name</string>
     <!-- Continue Watching air date display -->

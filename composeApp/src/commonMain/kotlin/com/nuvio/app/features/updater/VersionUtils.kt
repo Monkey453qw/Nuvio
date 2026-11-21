@@ -6,6 +6,13 @@ internal data class SemanticVersion(
     val patch: Long,
     val prerelease: List<String>
 ) : Comparable<SemanticVersion> {
+    override fun toString(): String = buildString {
+        append(major).append('.').append(minor).append('.').append(patch)
+        if (prerelease.isNotEmpty()) {
+            append('-').append(prerelease.joinToString("."))
+        }
+    }
+
     override fun compareTo(other: SemanticVersion): Int {
         compareValues(major, other.major).takeIf { it != 0 }?.let { return it }
         compareValues(minor, other.minor).takeIf { it != 0 }?.let { return it }

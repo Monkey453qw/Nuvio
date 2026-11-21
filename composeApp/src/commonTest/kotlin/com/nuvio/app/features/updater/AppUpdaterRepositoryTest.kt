@@ -2,7 +2,9 @@ package com.nuvio.app.features.updater
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class AppUpdaterRepositoryTest {
     @Test
@@ -69,6 +71,28 @@ class AppUpdaterRepositoryTest {
             "app-universal.apk",
             AppUpdaterRepository.selectUpdate(response, UpdateChannel.STABLE, listOf("armeabi-v7a"))?.assetName,
         )
+    }
+
+    @Test
+    fun customChannelReadsTheForkReleaseAndUsesItsVersion() {
+        assertEquals("releases/tags/custom-latest", AppUpdaterRepository.releasePath(UpdateChannel.CUSTOM))
+        assertEquals("Monkey453qw/Nuvio", AppUpdaterRepository.releaseRepo(UpdateChannel.CUSTOM))
+        val response = """{
+            "tag_name": "custom-latest",
+            "name": "Custom 1.1.0-beta.2-custom.42 (arm64-v8a)",
+            "prerelease": true,
+            "assets": [{"name": "Nuvio-arm64-v8a-release.apk", "browser_download_url": "https://example.com/custom.apk"}]
+        }"""
+        val update = select(response, UpdateChannel.CUSTOM)
+        assertEquals("1.1.0-beta.2-custom.42", update?.tag)
+        assertEquals("Nuvio-arm64-v8a-release.apk", update?.assetName)
+    }
+
+    @Test
+    fun customBuildsAreNewerThanTheOfficialBetaTheyAreBasedOn() {
+        assertTrue(VersionUtils.isRemoteNewer("1.1.0-beta.2-custom.42", "1.1.0-beta.2"))
+        assertTrue(VersionUtils.isRemoteNewer("1.1.0-beta.2-custom.43", "1.1.0-beta.2-custom.42"))
+        assertFalse(VersionUtils.isRemoteNewer("1.1.0-beta.2-custom.42", "1.1.0-beta.2-custom.42"))
     }
 
     private fun select(response: String, channel: UpdateChannel): AppUpdate? =

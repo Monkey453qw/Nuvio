@@ -40,7 +40,7 @@ internal object AppUpdaterRepository {
     suspend fun getLatestChannelUpdate(channel: UpdateChannel): Result<AppUpdate> = runCatching {
         val response = httpRequestRaw(
             method = "GET",
-            url = "https://api.github.com/repos/NuvioMedia/NuvioMobile/${releasePath(channel)}",
+            url = "https://api.github.com/repos/${releaseRepo(channel)}/${releasePath(channel)}",
             headers = mapOf(
                 "Accept" to "application/vnd.github+json",
                 "User-Agent" to "NuvioMobile",
@@ -56,9 +56,15 @@ internal object AppUpdaterRepository {
             ?: throw NoChannelReleaseException()
     }
 
+    internal fun releaseRepo(channel: UpdateChannel): String = when (channel) {
+        UpdateChannel.STABLE, UpdateChannel.BETA -> "NuvioMedia/NuvioMobile"
+        UpdateChannel.CUSTOM -> UpdateChannel.CUSTOM_REPO
+    }
+
     internal fun releasePath(channel: UpdateChannel): String = when (channel) {
         UpdateChannel.STABLE -> "releases/latest"
         UpdateChannel.BETA -> "releases?per_page=100"
+        UpdateChannel.CUSTOM -> "releases/tags/${UpdateChannel.CUSTOM_RELEASE_TAG}"
     }
 
     internal fun selectUpdate(
@@ -67,12 +73,16 @@ internal object AppUpdaterRepository {
         supportedAbis: List<String>,
     ): AppUpdate? {
         val releases = when (channel) {
-            UpdateChannel.STABLE -> listOf(json.decodeFromString<GitHubReleaseDto>(responseBody))
+            UpdateChannel.STABLE, UpdateChannel.CUSTOM ->
+                listOf(json.decodeFromString<GitHubReleaseDto>(responseBody))
             UpdateChannel.BETA -> json.decodeFromString<List<GitHubReleaseDto>>(responseBody)
         }
         return ReleaseSelector.eligibleReleases(releases, channel).firstNotNullOfOrNull { release ->
             val asset = chooseBestApkAsset(release.assets, supportedAbis) ?: return@firstNotNullOfOrNull null
-            val tag = release.tagName?.takeIf { VersionUtils.parse(it) != null }
+            // The tag of a custom build never changes, so the comparable version
+            // comes from the release name instead.
+            val tag = ReleaseSelector.releaseVersion(release, channel)?.toString()
+                ?: release.tagName?.takeIf { VersionUtils.parse(it) != null }
                 ?: release.name.orEmpty()
             AppUpdate(
                 tag = tag,
