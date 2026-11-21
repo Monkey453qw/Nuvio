@@ -37,6 +37,15 @@ class UpdatePreferencesTest {
     }
 
     @Test
+    fun customBuildsDefaultToTheCustomChannel() {
+        assertEquals(
+            UpdateChannel.CUSTOM,
+            UpdatePreferences("1.1.0-beta.2-custom.42").channel.value,
+        )
+        assertEquals("custom", AppUpdaterPlatform.getUpdateChannel())
+    }
+
+    @Test
     fun changingChannelClearsIgnoredRelease() {
         val preferences = UpdatePreferences("1.1.0")
         AppUpdaterPlatform.setIgnoredTag("1.2.0")

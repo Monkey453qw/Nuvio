@@ -17,11 +17,21 @@ enum class UpdateChannel(val storedValue: String) {
         const val CUSTOM_REPO = "Monkey453qw/Nuvio"
         const val CUSTOM_RELEASE_TAG = "custom-latest"
 
+        /** Marks a build produced by this fork, see the custom CI workflow. */
+        private const val CUSTOM_VERSION_MARKER = "-custom."
+
         fun fromStoredValue(value: String?): UpdateChannel? = entries.firstOrNull {
             it.storedValue.equals(value, ignoreCase = true)
         }
 
-        fun defaultForVersion(versionName: String): UpdateChannel =
-            if (VersionUtils.isPrerelease(versionName)) BETA else STABLE
+        /**
+         * Custom builds default to their own channel so a fresh install never
+         * offers the official build on top of the fork.
+         */
+        fun defaultForVersion(versionName: String): UpdateChannel = when {
+            versionName.contains(CUSTOM_VERSION_MARKER, ignoreCase = true) -> CUSTOM
+            VersionUtils.isPrerelease(versionName) -> BETA
+            else -> STABLE
+        }
     }
 }
