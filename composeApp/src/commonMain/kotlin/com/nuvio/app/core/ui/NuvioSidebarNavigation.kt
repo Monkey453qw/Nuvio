@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -49,6 +50,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 
@@ -59,9 +65,10 @@ import org.jetbrains.compose.resources.painterResource
  * shows labels. The rail itself only animates its own width, so the tab content
  * next to it re-lays out without being recreated or reloaded.
  *
- * Visually it is a floating, translucent card rather than a full-height slab:
- * rounded corners, air around it, a soft shadow and a faint accent glow at the
- * top so it reads as part of the app instead of a layer placed on top of it.
+ * The rail is a floating translucent card instead of a full-height slab, and the
+ * selected item is a genuinely frosted glass capsule: it blurs the rail's own
+ * layered backdrop (accent bloom + colour blobs) with a light grain, so it reads
+ * like glass rather than a flat grey highlight.
  */
 
 internal class SidebarNavigationItem(
@@ -82,7 +89,7 @@ internal val sidebarExpandedWidth = sidebarRailExpandedWidth + sidebarSlotHorizo
 
 private val sidebarItemHeight = 56.dp
 private val sidebarIconSize = 26.dp
-private val sidebarItemShape = RoundedCornerShape(NuvioTokens.Radius.xl)
+private val sidebarItemShape = RoundedCornerShape(NuvioTokens.Radius.full)
 private val sidebarRailShape = RoundedCornerShape(NuvioTokens.Radius.xxl)
 
 @Composable
@@ -95,20 +102,12 @@ internal fun NuvioSidebarNavigation(
     modifier: Modifier = Modifier,
 ) {
     val tokens = MaterialTheme.nuvio
+    // The pill frosts this state's source: the rail backdrop drawn below it.
+    val railHazeState = rememberHazeState()
     val width by animateDpAsState(
         targetValue = if (expanded) sidebarExpandedWidth else sidebarCollapsedWidth,
         animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
         label = "sidebar-width",
-    )
-    // A gradient instead of a flat fill: the rail fades from a more present
-    // surface at the top to a lighter, more transparent one at the bottom.
-    val surface = tokens.colors.surfaceElevated
-    val railBrush = Brush.verticalGradient(
-        colors = listOf(
-            surface.copy(alpha = 0.80f),
-            surface.copy(alpha = 0.68f),
-            surface.copy(alpha = 0.58f),
-        ),
     )
 
     Box(
@@ -132,28 +131,20 @@ internal fun NuvioSidebarNavigation(
                     ambientColor = Color.Black.copy(alpha = 0.20f),
                     spotColor = Color.Black.copy(alpha = 0.28f),
                 )
-                .clip(sidebarRailShape)
-                .background(railBrush)
-                .border(
-                    width = NuvioTokens.Border.hairline,
-                    color = tokens.colors.borderSubtle,
-                    shape = sidebarRailShape,
-                ),
+                .clip(sidebarRailShape),
         ) {
-            // Faint accent bloom at the top so the glass picks up the app color
-            // instead of sitting there as a neutral grey block.
+            SidebarGlassBackdrop(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .hazeSource(railHazeState),
+            )
             Box(
                 modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .height(200.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                tokens.colors.accent.copy(alpha = 0.10f),
-                                Color.Transparent,
-                            ),
-                        ),
+                    .fillMaxSize()
+                    .border(
+                        width = NuvioTokens.Border.hairline,
+                        color = tokens.colors.borderSubtle,
+                        shape = sidebarRailShape,
                     ),
             )
             Column(
@@ -164,7 +155,11 @@ internal fun NuvioSidebarNavigation(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 items.forEach { item ->
-                    SidebarNavigationRow(item = item, expanded = expanded)
+                    SidebarNavigationRow(
+                        item = item,
+                        expanded = expanded,
+                        hazeState = railHazeState,
+                    )
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 SidebarNavigationToggle(
@@ -178,10 +173,80 @@ internal fun NuvioSidebarNavigation(
     }
 }
 
+/**
+ * The glass scene behind the rail: a translucent vertical gradient plus soft
+ * accent colour blobs. The blobs give the frosted selected pill something with
+ * actual shape and colour to blend, which is what makes the blur visible.
+ */
+@Composable
+private fun SidebarGlassBackdrop(modifier: Modifier = Modifier) {
+    val tokens = MaterialTheme.nuvio
+    val surface = tokens.colors.surfaceElevated
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            surface.copy(alpha = 0.80f),
+                            surface.copy(alpha = 0.68f),
+                            surface.copy(alpha = 0.58f),
+                        ),
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = (-44).dp, y = (-54).dp)
+                .size(230.dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            tokens.colors.accent.copy(alpha = 0.30f),
+                            Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset(x = 56.dp, y = 64.dp)
+                .size(250.dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            tokens.colors.accentStrong.copy(alpha = 0.18f),
+                            Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
+        // A soft top sheen so the top of the card catches light like glass.
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp)
+                .align(Alignment.TopCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.05f),
+                            Color.Transparent,
+                        ),
+                    ),
+                ),
+        )
+    }
+}
+
 @Composable
 private fun SidebarNavigationRow(
     item: SidebarNavigationItem,
     expanded: Boolean,
+    hazeState: HazeState,
 ) {
     val tokens = MaterialTheme.nuvio
     val iconTint by animateColorAsState(
@@ -194,15 +259,12 @@ private fun SidebarNavigationRow(
         animationSpec = tween(durationMillis = 160),
         label = "sidebar-label-color",
     )
+    // A light accent veil on top of the frost keeps the selection recognisable
+    // without hiding the blurred backdrop underneath.
     val itemBackground by animateColorAsState(
-        targetValue = if (item.selected) tokens.colors.accent.copy(alpha = 0.15f) else Color.Transparent,
+        targetValue = if (item.selected) tokens.colors.accent.copy(alpha = 0.10f) else Color.Transparent,
         animationSpec = tween(durationMillis = 160),
         label = "sidebar-item-background",
-    )
-    val itemBorder by animateColorAsState(
-        targetValue = if (item.selected) tokens.colors.accent.copy(alpha = 0.32f) else Color.Transparent,
-        animationSpec = tween(durationMillis = 160),
-        label = "sidebar-item-border",
     )
 
     Row(
@@ -210,14 +272,38 @@ private fun SidebarNavigationRow(
             .fillMaxWidth()
             .height(sidebarItemHeight)
             .clip(sidebarItemShape)
+            .then(
+                if (item.selected) {
+                    Modifier.hazeEffect(hazeState) {
+                        blurRadius = 24.dp
+                        noiseFactor = 0.12f
+                        tints = listOf(HazeTint(Color.White.copy(alpha = 0.08f)))
+                        fallbackTint = HazeTint(tokens.colors.surfaceElevated.copy(alpha = 0.92f))
+                    }
+                } else {
+                    Modifier
+                },
+            )
             .background(itemBackground)
-            .border(
-                width = NuvioTokens.Border.hairline,
-                color = itemBorder,
-                shape = sidebarItemShape,
+            .then(
+                if (item.selected) {
+                    Modifier.border(
+                        width = NuvioTokens.Border.hairline,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                tokens.colors.accent.copy(alpha = 0.55f),
+                                Color.White.copy(alpha = 0.10f),
+                                tokens.colors.accent.copy(alpha = 0.16f),
+                            ),
+                        ),
+                        shape = sidebarItemShape,
+                    )
+                } else {
+                    Modifier
+                },
             )
             .clickable(role = Role.Tab, onClick = item.onClick)
-            .padding(horizontal = if (expanded) 14.dp else 0.dp),
+            .padding(horizontal = if (expanded) 16.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (expanded) Arrangement.spacedBy(14.dp) else Arrangement.Center,
     ) {
@@ -283,7 +369,7 @@ private fun SidebarNavigationToggle(
             .height(44.dp)
             .clip(sidebarItemShape)
             .clickable(role = Role.Button, onClick = onToggleExpanded)
-            .padding(horizontal = if (expanded) 14.dp else 0.dp),
+            .padding(horizontal = if (expanded) 16.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = if (expanded) Arrangement.spacedBy(14.dp) else Arrangement.Center,
     ) {
