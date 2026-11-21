@@ -49,8 +49,26 @@ jobs:
           IMDB_TAPFRAME_API_BASE_URL=https://imdb.tapframe.space/
           EOF
 
+      - name: Compute custom version
+        id: version
+        run: |
+          set -euo pipefail
+          base_name=$(sed -n 's/^MARKETING_VERSION=//p' iosApp/Configuration/Version.xcconfig | tr -d '[:space:]')
+          base_code=$(sed -n 's/^CURRENT_PROJECT_VERSION=//p' iosApp/Configuration/Version.xcconfig | tr -d '[:space:]')
+          if [ -z "${base_name}" ] || [ -z "${base_code}" ]; then
+            echo "Could not read MARKETING_VERSION/CURRENT_PROJECT_VERSION" >&2
+            exit 1
+          fi
+          # Semver-valid, always increasing build suffix so the in-app updater
+          # (which compares semantic versions) sees every new build as newer.
+          version_name="${base_name}-custom.${GITHUB_RUN_NUMBER}"
+          version_code=$((base_code * 10000 + GITHUB_RUN_NUMBER))
+          echo "name=${version_name}" >> "$GITHUB_OUTPUT"
+          echo "code=${version_code}" >> "$GITHUB_OUTPUT"
+          echo "Custom version: ${version_name} (${version_code})"
+
       - name: Build arm64-v8a release APK (single variant)
-        run: ./gradlew :androidApp:assembleFullRelease -PnuvioAbiFilter=arm64-v8a --stacktrace
+        run: ./gradlew :androidApp:assembleFullRelease -PnuvioAbiFilter=arm64-v8a -Pnuvio.app.versionName="${{ steps.version.outputs.name }}" -Pnuvio.app.versionCode="${{ steps.version.outputs.code }}" --stacktrace
 
       - name: Collect the single arm64-v8a APK
         run: |
@@ -79,11 +97,28 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
+          version_name="${{ steps.version.outputs.name }}"
+          notes=$(cat <<EOF
+          Custom build ${version_name} (arm64-v8a).
+
+          Built from \`${GITHUB_SHA}\` on the \`custom\` branch: latest official NuvioMobile code plus the fork patches.
+
+          Install it over an older custom build; in-app updates with the "Custom build" update channel pick this release up automatically.
+          EOF
+          )
           gh release create custom-latest \
             --target "$GITHUB_SHA" \
-            --title "Custom build (arm64-v8a)" \
-            --notes "Latest custom branch build. Single variant: arm64-v8a only." \
+            --title "Custom ${version_name} (arm64-v8a)" \
+            --notes "${notes}" \
+            --prerelease \
             || true
+          # Keep the title, notes and pre-release flag fresh for every build: the
+          # in-app updater reads the version from the release title.
+          gh release edit custom-latest \
+            --title "Custom ${version_name} (arm64-v8a)" \
+            --notes "${notes}" \
+            --prerelease
           gh release upload custom-latest \
             "${RUNNER_TEMP}/out/Nuvio-arm64-v8a-release.apk" --clobber
 
@@ -92,6 +127,7 @@ jobs:
           {
             echo "### Build result"
             echo ""
+            echo "- Version: **${{ steps.version.outputs.name }}** (versionCode ${{ steps.version.outputs.code }})"
             echo "- Single variant: **arm64-v8a** only (no other variants were built)."
             echo "- Download the raw APK, no zip: **Releases → custom-latest → Nuvio-arm64-v8a-release.apk**."
             echo "- Or from this run's artifact: **nuvio-arm64-v8a** (contains that same single APK)."
