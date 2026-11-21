@@ -1,6 +1,7 @@
 package com.nuvio.app.features.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
@@ -36,6 +38,7 @@ import com.nuvio.app.core.ui.FloatingNavigationBar
 import com.nuvio.app.core.ui.FloatingNavigationItem
 import com.nuvio.app.core.ui.NuvioClassicNavigationBar
 import com.nuvio.app.core.ui.NuvioNavBarScrollState
+import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.nuvio
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
@@ -88,26 +91,42 @@ internal fun NavigationBarPreview(style: NavBarStyle, isTablet: Boolean, glowEna
                 }
             }
             if (style == NavBarStyle.SIDEBAR) {
-                Column(
+                val railShape = RoundedCornerShape(18.dp)
+                Box(
                     modifier = Modifier
                         .align(Alignment.CenterStart)
-                        .width(56.dp)
+                        .padding(start = 6.dp, top = 8.dp, bottom = 8.dp)
+                        .width(52.dp)
                         .fillMaxHeight()
-                        .background(tokens.colors.surfaceElevated)
-                        .padding(horizontal = 9.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    repeat(5) { index ->
-                        Box(
-                            Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    if (index == 0) tokens.colors.accent.copy(alpha = 0.32f)
-                                    else tokens.colors.surfacePopover,
+                        .shadow(8.dp, railShape, clip = false)
+                        .clip(railShape)
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(
+                                    tokens.colors.surfaceElevated.copy(alpha = 0.90f),
+                                    tokens.colors.surfaceElevated.copy(alpha = 0.68f),
                                 ),
+                            ),
                         )
+                        .border(NuvioTokens.Border.hairline, tokens.colors.borderSubtle, railShape)
+                        .padding(8.dp),
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        repeat(5) { index ->
+                            Box(
+                                Modifier
+                                    .size(22.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(
+                                        if (index == 0) tokens.colors.accent.copy(alpha = 0.28f)
+                                        else tokens.colors.overlayHover,
+                                    ),
+                            )
+                        }
                     }
                 }
             } else if (style == NavBarStyle.CLASSIC && !isTablet) {
