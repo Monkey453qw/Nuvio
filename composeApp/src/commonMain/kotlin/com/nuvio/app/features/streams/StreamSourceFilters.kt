@@ -205,21 +205,28 @@ object StreamSourceFilterMemory {
             ?.let { json.decodeFromString(StreamSourceFilterPrefs.serializer(), it) }
     }.getOrNull() ?: StreamSourceFilterPrefs()
 
-    private val _selection = MutableStateFlow(prefs.global?.toSelection() ?: StreamSourceFilterSelection.NONE)
+    // Never start on a remembered selection: the chips show "All" until the user
+    // taps one, or until a title the user already filtered is opened again.
+    private val _selection = MutableStateFlow(StreamSourceFilterSelection.NONE)
     val selection: StateFlow<StreamSourceFilterSelection> = _selection.asStateFlow()
 
     private var activeTitleKey: String? = null
 
     /**
      * Called when a title's streams are requested: activates the title key and
-     * restores its remembered selection, falling back to the global one.
+     * restores that title's own remembered selection.
+     *
+     * It deliberately does not fall back to the last selection used elsewhere:
+     * a title the user never filtered always starts on "All", and re-seeding the
+     * same title (a reload while streams arrive, a refresh) keeps whatever the
+     * user has picked in the meantime. The filter only ever changes on an
+     * explicit chip tap.
      */
     fun seedFor(titleKey: String?) {
+        if (activeTitleKey == titleKey) return
         activeTitleKey = titleKey
-        val remembered = titleKey?.let { key -> prefs.titles[key]?.toSelection() }
-            ?: prefs.global?.toSelection()
+        _selection.value = titleKey?.let { key -> prefs.titles[key]?.toSelection() }
             ?: StreamSourceFilterSelection.NONE
-        _selection.value = remembered
     }
 
     fun select(qualityKey: String?, languageKey: String?) {
