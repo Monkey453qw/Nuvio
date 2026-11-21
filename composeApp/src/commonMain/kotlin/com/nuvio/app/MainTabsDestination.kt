@@ -2,17 +2,24 @@ package com.nuvio.app
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -25,6 +32,8 @@ import com.nuvio.app.core.ui.LocalNuvioBottomNavigationOverlayPadding
 import com.nuvio.app.core.ui.LocalNuvioNavBarScrollState
 import com.nuvio.app.core.ui.NuvioNavBarScrollState
 import com.nuvio.app.core.ui.NuvioClassicNavigationBar
+import com.nuvio.app.core.ui.NuvioSidebarNavigation
+import com.nuvio.app.core.ui.SidebarNavigationItem
 import com.nuvio.app.core.ui.FloatingNavigationBar
 import com.nuvio.app.core.ui.FloatingNavigationItem
 import com.nuvio.app.core.ui.PlatformBackHandler
@@ -40,7 +49,10 @@ import nuvio.composeapp.generated.resources.compose_nav_home
 import nuvio.composeapp.generated.resources.compose_nav_library
 import nuvio.composeapp.generated.resources.compose_nav_profile
 import nuvio.composeapp.generated.resources.compose_nav_search
+import nuvio.composeapp.generated.resources.compose_settings_page_addons
 import nuvio.composeapp.generated.resources.sidebar_library
+import nuvio.composeapp.generated.resources.sidebar_navigation_collapse
+import nuvio.composeapp.generated.resources.sidebar_navigation_expand
 import nuvio.composeapp.generated.resources.sidebar_search
 import org.jetbrains.compose.resources.stringResource
 
@@ -59,6 +71,7 @@ internal fun MainTabsDestination(
     actions: (isTabletLayout: Boolean) -> AppTabActions,
     onBack: () -> Unit,
     onTabSelected: (AppScreenTab) -> Unit,
+    onAddonsSelected: () -> Unit,
     onProfileSelected: (NuvioProfile) -> Unit,
     onAddProfileRequested: () -> Unit,
 ) {
@@ -77,6 +90,48 @@ internal fun MainTabsDestination(
         val navBarHazeState = rememberHazeState()
         val navBarStyleSetting by remember { ThemeSettingsRepository.navBarStyle }.collectAsStateWithLifecycle()
         val navBarGlowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
+        // The sidebar is a tablet-only navigation style. Phones always keep the
+        // bottom bar, so a sidebar choice stored on another device is ignored here.
+        val effectiveNavBarStyle = when {
+            isTabletLayout -> if (navBarStyleSetting == NavBarStyle.SIDEBAR) NavBarStyle.SIDEBAR else NavBarStyle.COMPACT
+            navBarStyleSetting == NavBarStyle.SIDEBAR -> NavBarStyle.ADAPTIVE
+            else -> navBarStyleSetting
+        }
+        val useSidebarNavigation = isTabletLayout && !useNativeBottomTabs &&
+            effectiveNavBarStyle == NavBarStyle.SIDEBAR
+        var sidebarExpanded by rememberSaveable { mutableStateOf(false) }
+        val sidebarItems = listOf(
+            SidebarNavigationItem(
+                label = stringResource(Res.string.compose_nav_home),
+                selected = selectedTab == AppScreenTab.Home,
+                onClick = { onTabSelected(AppScreenTab.Home) },
+                icon = Icons.Filled.Home,
+            ),
+            SidebarNavigationItem(
+                label = stringResource(Res.string.compose_nav_search),
+                selected = selectedTab == AppScreenTab.Search,
+                onClick = { onTabSelected(AppScreenTab.Search) },
+                drawable = Res.drawable.sidebar_search,
+            ),
+            SidebarNavigationItem(
+                label = stringResource(Res.string.compose_nav_library),
+                selected = selectedTab == AppScreenTab.Library,
+                onClick = { onTabSelected(AppScreenTab.Library) },
+                drawable = Res.drawable.sidebar_library,
+            ),
+            SidebarNavigationItem(
+                label = stringResource(Res.string.compose_settings_page_addons),
+                selected = false,
+                onClick = onAddonsSelected,
+                icon = Icons.Rounded.Extension,
+            ),
+            SidebarNavigationItem(
+                label = stringResource(Res.string.compose_nav_profile),
+                selected = selectedTab == AppScreenTab.Settings,
+                onClick = { onTabSelected(AppScreenTab.Settings) },
+                icon = Icons.Rounded.Person,
+            ),
+        )
         val floatingNavigationItems = listOf(
             FloatingNavigationItem(
                 selected = selectedTab == AppScreenTab.Home,
@@ -120,7 +175,7 @@ internal fun MainTabsDestination(
             containerColor = Color.Transparent,
             contentWindowInsets = WindowInsets(0),
             bottomBar = {
-                if (!isTabletLayout && !useNativeBottomTabs && navBarStyleSetting == NavBarStyle.CLASSIC) {
+                if (!isTabletLayout && !useNativeBottomTabs && effectiveNavBarStyle == NavBarStyle.CLASSIC) {
                     NuvioClassicNavigationBar {
                         NavItem(
                             selected = selectedTab == AppScreenTab.Home,
@@ -156,24 +211,45 @@ internal fun MainTabsDestination(
             },
         ) { innerPadding ->
             Box(modifier = Modifier.fillMaxSize()) {
-                CompositionLocalProvider(
-                    LocalNuvioBottomNavigationOverlayPadding provides if (useNativeBottomTabs) 49.dp else if (isTabletLayout) 72.dp else if (navBarStyleSetting != NavBarStyle.CLASSIC) 72.dp else 0.dp,
-                    LocalNuvioNavBarScrollState provides navBarScrollState,
-                ) {
-                    AppTabHost(
-                        selectedTab = selectedTab,
-                        requests = requests,
-                        state = state,
-                        actions = tabActions,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(if (isTabletLayout || navBarStyleSetting != NavBarStyle.CLASSIC) Modifier.hazeSource(state = navBarHazeState) else Modifier)
-                            .then(if (navBarStyleSetting == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(navBarScrollState.nestedScrollConnection) else Modifier)
-                            .padding(innerPadding),
-                    )
+                Row(modifier = Modifier.fillMaxSize()) {
+                    // Tablet-only: the rail lives next to the tab host so the
+                    // tab content keeps its state while the rail expands.
+                    if (useSidebarNavigation) {
+                        NuvioSidebarNavigation(
+                            items = sidebarItems,
+                            expanded = sidebarExpanded,
+                            onToggleExpanded = { sidebarExpanded = !sidebarExpanded },
+                            expandLabel = stringResource(Res.string.sidebar_navigation_expand),
+                            collapseLabel = stringResource(Res.string.sidebar_navigation_collapse),
+                        )
+                    }
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                        CompositionLocalProvider(
+                            LocalNuvioBottomNavigationOverlayPadding provides when {
+                                useNativeBottomTabs -> 49.dp
+                                useSidebarNavigation -> 0.dp
+                                isTabletLayout -> 72.dp
+                                effectiveNavBarStyle != NavBarStyle.CLASSIC -> 72.dp
+                                else -> 0.dp
+                            },
+                            LocalNuvioNavBarScrollState provides navBarScrollState,
+                        ) {
+                            AppTabHost(
+                                selectedTab = selectedTab,
+                                requests = requests,
+                                state = state,
+                                actions = tabActions,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .then(if (isTabletLayout || effectiveNavBarStyle != NavBarStyle.CLASSIC) Modifier.hazeSource(state = navBarHazeState) else Modifier)
+                                    .then(if (effectiveNavBarStyle == NavBarStyle.ADAPTIVE) Modifier.nestedScroll(navBarScrollState.nestedScrollConnection) else Modifier)
+                                    .padding(innerPadding),
+                            )
+                        }
+                    }
                 }
 
-                if (isTabletLayout && !useNativeBottomTabs) {
+                if (isTabletLayout && !useNativeBottomTabs && !useSidebarNavigation) {
                     val tabletNavBarScrollState = remember { NuvioNavBarScrollState().apply { collapse() } }
                     // The floating bar always sits at the bottom, on every device
                     // and orientation, using the same bottom-insets padding as
@@ -189,8 +265,8 @@ internal fun MainTabsDestination(
                     )
                 }
 
-                if (!isTabletLayout && !useNativeBottomTabs && navBarStyleSetting != NavBarStyle.CLASSIC) {
-                    when (navBarStyleSetting) {
+                if (!isTabletLayout && !useNativeBottomTabs && effectiveNavBarStyle != NavBarStyle.CLASSIC) {
+                    when (effectiveNavBarStyle) {
                         NavBarStyle.EXPANDED -> navBarScrollState.expand()
                         NavBarStyle.COMPACT -> navBarScrollState.collapse()
                         else -> {}

@@ -115,7 +115,11 @@ internal fun LazyListScope.layoutSettingsContent(
             val selectedNavBarStyle by ThemeSettingsRepository.navBarStyle.collectAsStateWithLifecycle()
             val glowEnabled by ThemeSettingsRepository.navBarGlowEnabled.collectAsStateWithLifecycle()
             val liquidGlassNativeTabBarEnabled by ThemeSettingsRepository.liquidGlassNativeTabBarEnabled.collectAsStateWithLifecycle()
-            val effectiveNavBarStyle = if (isTablet) NavBarStyle.COMPACT else selectedNavBarStyle
+            val effectiveNavBarStyle = when {
+                isTablet -> if (selectedNavBarStyle == NavBarStyle.SIDEBAR) NavBarStyle.SIDEBAR else NavBarStyle.COMPACT
+                selectedNavBarStyle == NavBarStyle.SIDEBAR -> NavBarStyle.ADAPTIVE
+                else -> selectedNavBarStyle
+            }
             val navBarStyleAvailable = !isIos
             SettingsSection(
                 title = stringResource(Res.string.settings_appearance_nav_bar_style),
@@ -135,7 +139,10 @@ internal fun LazyListScope.layoutSettingsContent(
                         if (liquidGlassNativeTabBarSupported) SettingsGroupDivider(isTablet = isTablet)
                         SettingsNavigationRow(
                             title = stringResource(Res.string.settings_appearance_nav_bar_style),
-                            description = if (floatingNavigationGlowSupported && effectiveNavBarStyle != NavBarStyle.CLASSIC) {
+                            description = if (floatingNavigationGlowSupported &&
+                                effectiveNavBarStyle != NavBarStyle.CLASSIC &&
+                                effectiveNavBarStyle != NavBarStyle.SIDEBAR
+                            ) {
                                 stringResource(
                                     Res.string.settings_nav_bar_summary,
                                     stringResource(effectiveNavBarStyle.labelRes),
@@ -154,7 +161,17 @@ internal fun LazyListScope.layoutSettingsContent(
                 NavigationBarSettingsSheet(
                     isTablet = isTablet,
                     selectedStyle = effectiveNavBarStyle,
-                    onStyleSelected = ThemeSettingsRepository::setNavBarStyle,
+                    onStyleSelected = { style ->
+                        ThemeSettingsRepository.setNavBarStyle(
+                            if (isTablet && style == NavBarStyle.COMPACT) {
+                                // "Bottom bar" on a tablet only clears the sidebar
+                                // choice; the phone's own bar style stays as it is.
+                                if (selectedNavBarStyle == NavBarStyle.SIDEBAR) NavBarStyle.ADAPTIVE else selectedNavBarStyle
+                            } else {
+                                style
+                            },
+                        )
+                    },
                     glowEnabled = glowEnabled,
                     onGlowChanged = ThemeSettingsRepository::setNavBarGlowEnabled,
                     onDismiss = { showNavBarStyleSheet = false },

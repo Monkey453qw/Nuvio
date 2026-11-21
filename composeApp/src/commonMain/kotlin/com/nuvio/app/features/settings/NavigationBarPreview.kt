@@ -7,10 +7,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
@@ -83,7 +87,30 @@ internal fun NavigationBarPreview(style: NavBarStyle, isTablet: Boolean, glowEna
                     }
                 }
             }
-            if (style == NavBarStyle.CLASSIC && !isTablet) {
+            if (style == NavBarStyle.SIDEBAR) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .width(56.dp)
+                        .fillMaxHeight()
+                        .background(tokens.colors.surfaceElevated)
+                        .padding(horizontal = 9.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    repeat(5) { index ->
+                        Box(
+                            Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (index == 0) tokens.colors.accent.copy(alpha = 0.32f)
+                                    else tokens.colors.surfacePopover,
+                                ),
+                        )
+                    }
+                }
+            } else if (style == NavBarStyle.CLASSIC && !isTablet) {
                 NuvioClassicNavigationBar(
                     Modifier.align(Alignment.BottomCenter).background(tokens.colors.background),
                 ) {

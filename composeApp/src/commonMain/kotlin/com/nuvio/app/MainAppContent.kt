@@ -1530,6 +1530,12 @@ internal fun MainAppContent(
                             }
                         },
                         onTabSelected = ::handleRootTabClick,
+                        onAddonsSelected = {
+                            activateTab(AppScreenTab.Settings)
+                            navController.navigate(AddonsSettingsRoute(addonsSettingsTitle)) {
+                                launchSingleTop = true
+                            }
+                        },
                         onProfileSelected = { profile ->
                             if (profile.profileIndex != ProfileRepository.state.value.activeProfile?.profileIndex) {
                                 profileSwitchLoading = true

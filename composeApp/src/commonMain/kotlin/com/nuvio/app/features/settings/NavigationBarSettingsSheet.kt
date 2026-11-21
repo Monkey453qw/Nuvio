@@ -27,6 +27,7 @@ import com.nuvio.app.core.ui.NuvioModalBottomSheet
 import com.nuvio.app.core.ui.NuvioPrimaryButton
 import com.nuvio.app.core.ui.dismissNuvioBottomSheet
 import com.nuvio.app.core.ui.floatingNavigationGlowSupported
+import com.nuvio.app.core.ui.nuvio
 import kotlinx.coroutines.launch
 import nuvio.composeapp.generated.resources.*
 import org.jetbrains.compose.resources.stringResource
@@ -57,8 +58,40 @@ internal fun NavigationBarSettingsSheet(
                 )
                 NavigationBarPreview(selectedStyle, isTablet, glowEnabled)
             }
-            if (!isTablet) {
-                NavBarStyle.entries.forEach { style ->
+            if (isTablet) {
+                // Tablets can keep the floating bar or switch to the side rail.
+                // Both options are stored in the same navigation style setting.
+                item(key = "tablet-nav-title") {
+                    Text(
+                        text = stringResource(Res.string.settings_nav_bar_tablet_style_title),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.nuvio.colors.textMuted,
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                    )
+                }
+                listOf(
+                    NavBarStyle.COMPACT to Res.string.settings_nav_bar_style_bottom_bar,
+                    NavBarStyle.SIDEBAR to Res.string.settings_nav_bar_style_sidebar,
+                ).forEach { (style, label) ->
+                    item(key = "tablet-${style.key}") {
+                        NuvioBottomSheetActionRow(
+                            title = stringResource(label),
+                            onClick = { onStyleSelected(style) },
+                            selected = style == selectedStyle,
+                            modifier = Modifier.semantics {
+                                role = Role.RadioButton
+                                selected = style == selectedStyle
+                            },
+                            trailingContent = {
+                                if (style == selectedStyle) {
+                                    Icon(Icons.Default.Check, null, tint = MaterialTheme.colorScheme.primary)
+                                }
+                            },
+                        )
+                    }
+                }
+            } else {
+                NavBarStyle.entries.filter { it != NavBarStyle.SIDEBAR }.forEach { style ->
                     item(key = style.key) {
                         NuvioBottomSheetActionRow(
                             title = stringResource(style.labelRes),
@@ -78,7 +111,11 @@ internal fun NavigationBarSettingsSheet(
                 }
             }
             item {
-                AnimatedVisibility(floatingNavigationGlowSupported && selectedStyle != NavBarStyle.CLASSIC) {
+                AnimatedVisibility(
+                    floatingNavigationGlowSupported &&
+                        selectedStyle != NavBarStyle.CLASSIC &&
+                        selectedStyle != NavBarStyle.SIDEBAR,
+                ) {
                     Column {
                         NuvioBottomSheetDivider()
                         SettingsSwitchRow(
