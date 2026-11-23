@@ -8,19 +8,27 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CheckCircleOutline
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Replay
+import androidx.compose.material.icons.rounded.Extension
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -38,10 +46,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation3.runtime.NavKey
@@ -74,13 +84,16 @@ import com.nuvio.app.core.ui.NuvioCardDepthSurface
 import com.nuvio.app.core.ui.NuvioContinueWatchingActionSheet
 import com.nuvio.app.core.ui.NuvioFloatingPrompt
 import com.nuvio.app.core.ui.NuvioPosterZoomActionOverlay
+import com.nuvio.app.core.ui.NuvioSidebarNavigation
 import com.nuvio.app.core.ui.NuvioStatusModal
+import com.nuvio.app.core.ui.NuvioTokens
 import com.nuvio.app.core.ui.NuvioToastController
 import com.nuvio.app.core.ui.NuvioToastHost
 import com.nuvio.app.core.ui.PosterZoomAnchor
 import com.nuvio.app.core.ui.PosterZoomAnchorHolder
 import com.nuvio.app.core.ui.PosterZoomOverlayAction
 import com.nuvio.app.core.ui.PosterZoomOverlayExitAnimation
+import com.nuvio.app.core.ui.SidebarNavigationItem
 import com.nuvio.app.core.ui.TrackingListPickerDialog
 import com.nuvio.app.core.ui.isLiquidGlassNativeTabBarSupported
 import com.nuvio.app.core.ui.localizedContinueWatchingSubtitle
@@ -154,6 +167,7 @@ import com.nuvio.app.features.settings.ContinueWatchingSettingsScreen
 import com.nuvio.app.features.settings.HomescreenSettingsScreen
 import com.nuvio.app.features.settings.LicensesAttributionsSettingsScreen
 import com.nuvio.app.features.settings.MetaScreenSettingsScreen
+import com.nuvio.app.features.settings.NavBarStyle
 import com.nuvio.app.features.settings.PluginsSettingsScreen
 import com.nuvio.app.features.settings.SupportersContributorsSettingsScreen
 import com.nuvio.app.features.settings.ThemeSettingsRepository
@@ -1331,19 +1345,127 @@ internal fun MainAppContent(
                     .background(MaterialTheme.nuvio.colors.background),
             ) {
             val verticalBarPadding = LocalVerticalBarPadding.current
-            val drawsUnderVerticalBar = currentRoute.drawsUnderVerticalBar(selectedTab)
             SharedTransitionLayout {
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                // The rail lives at the app shell instead of inside the tabs entry,
+                // so it survives navigation to settings sub-pages such as Addons.
+                val isShellTabletLayout = useTabletFloatingTabBar || maxWidth >= 768.dp
+                val navBarStyleSetting by remember { ThemeSettingsRepository.navBarStyle }
+                    .collectAsStateWithLifecycle()
+                val shellNativeBottomTabs = if (useNativeNavigation) {
+                    useNativeTabBar
+                } else {
+                    liquidGlassNativeTabBarSupported &&
+                        liquidGlassNativeTabBarEnabled &&
+                        initialHomeReady
+                }
+                val sidebarStyleEnabled = isShellTabletLayout && !shellNativeBottomTabs &&
+                    navBarStyleSetting == NavBarStyle.SIDEBAR
+                val sidebarVisible = sidebarStyleEnabled &&
+                    currentRoute?.hidesNavigationBar != true &&
+                    (currentRoute is TabsRoute || currentRoute is SettingsDestinationRoute)
+                var sidebarExpanded by rememberSaveable { mutableStateOf(false) }
+                val sidebarOnTabs = currentRoute is TabsRoute
+                val sidebarAddonsActive = currentRoute is AddonsSettingsRoute
+                val sidebarProfileActive = (sidebarOnTabs && selectedTab == AppScreenTab.Settings) ||
+                    (currentRoute is SettingsDestinationRoute && !sidebarAddonsActive)
+                fun selectSidebarTab(tab: AppScreenTab) {
+                    if (currentRoute !is TabsRoute) {
+                        navController.navigate(TabsRoute) {
+                            popUpTo<TabsRoute> { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    }
+                    handleRootTabClick(tab)
+                }
+                val sidebarItems = listOf(
+                    SidebarNavigationItem(
+                        label = stringResource(Res.string.compose_nav_home),
+                        selected = sidebarOnTabs && selectedTab == AppScreenTab.Home,
+                        onClick = { selectSidebarTab(AppScreenTab.Home) },
+                        icon = Icons.Filled.Home,
+                    ),
+                    SidebarNavigationItem(
+                        label = stringResource(Res.string.compose_nav_search),
+                        selected = sidebarOnTabs && selectedTab == AppScreenTab.Search,
+                        onClick = { selectSidebarTab(AppScreenTab.Search) },
+                        drawable = Res.drawable.sidebar_search,
+                    ),
+                    SidebarNavigationItem(
+                        label = stringResource(Res.string.compose_nav_library),
+                        selected = sidebarOnTabs && selectedTab == AppScreenTab.Library,
+                        onClick = { selectSidebarTab(AppScreenTab.Library) },
+                        drawable = Res.drawable.sidebar_library,
+                    ),
+                    SidebarNavigationItem(
+                        label = stringResource(Res.string.compose_settings_page_addons),
+                        selected = sidebarAddonsActive,
+                        onClick = {
+                            activateTab(AppScreenTab.Settings)
+                            navController.navigate(AddonsSettingsRoute(addonsSettingsTitle)) {
+                                launchSingleTop = true
+                            }
+                        },
+                        icon = Icons.Rounded.Extension,
+                    ),
+                    SidebarNavigationItem(
+                        label = stringResource(Res.string.compose_nav_profile),
+                        selected = sidebarProfileActive,
+                        onClick = { selectSidebarTab(AppScreenTab.Settings) },
+                        icon = Icons.Rounded.Person,
+                    ),
+                )
+                // One sheet for the whole route content: its start edge is rounded
+                // like the rail, while the other edges stay cinematic and full-bleed.
+                val contentSheetShape = RoundedCornerShape(
+                    topStart = NuvioTokens.Radius.xxl,
+                    bottomStart = NuvioTokens.Radius.xxl,
+                )
+                val drawsUnderVerticalBar = !sidebarVisible &&
+                    currentRoute.drawsUnderVerticalBar(selectedTab)
+                val contentVerticalBarPadding = if (sidebarVisible) {
+                    PaddingValues()
+                } else {
+                    verticalBarPadding
+                }
                 CompositionLocalProvider(
                     LocalPosterClickAnchor provides if (posterNavigationEnabled) posterNavigation::prepare else null,
                     LocalUseNativeNavigation provides useNativeNavigation,
                     LocalNativeNavigationBarHidden provides (currentRoute?.hidesNavigationBar == true),
-                    LocalVerticalBarPadding provides if (drawsUnderVerticalBar) verticalBarPadding else PaddingValues(),
+                    LocalVerticalBarPadding provides if (drawsUnderVerticalBar) contentVerticalBarPadding else PaddingValues(),
                 ) {
+                Row(modifier = Modifier.fillMaxSize()) {
+                if (sidebarVisible) {
+                    NuvioSidebarNavigation(
+                        items = sidebarItems,
+                        expanded = sidebarExpanded,
+                        onToggleExpanded = { sidebarExpanded = !sidebarExpanded },
+                        expandLabel = stringResource(Res.string.sidebar_navigation_expand),
+                        collapseLabel = stringResource(Res.string.sidebar_navigation_collapse),
+                    )
+                }
+                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
                 NavDisplay(
                     backStack = navBackStack,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(if (drawsUnderVerticalBar) PaddingValues() else verticalBarPadding),
+                        .then(
+                            if (sidebarVisible) {
+                                Modifier
+                                    .padding(start = 6.dp)
+                                    .clip(contentSheetShape)
+                                    .background(MaterialTheme.nuvio.colors.background)
+                                    .border(
+                                        width = NuvioTokens.Border.hairline,
+                                        color = MaterialTheme.nuvio.colors.borderSubtle,
+                                        shape = contentSheetShape,
+                                    )
+                            } else {
+                                Modifier.padding(
+                                    if (drawsUnderVerticalBar) PaddingValues() else contentVerticalBarPadding,
+                                )
+                            },
+                        ),
                     onBack = { navController.popBackStack() },
                     entryDecorators = listOf(
                         rememberSaveableStateHolderNavEntryDecorator<NavKey>(),
@@ -1356,7 +1478,7 @@ internal fun MainAppContent(
                         selectedTab = selectedTab,
                         initialHomeReady = initialHomeReady,
                         rootRouteActive = currentRoute is TabsRoute,
-                        useTabletFloatingTabBar = useTabletFloatingTabBar,
+                        isTabletLayout = isShellTabletLayout,
                         useNativeNavigation = useNativeNavigation,
                         useNativeTabBar = useNativeTabBar,
                         liquidGlassNativeTabBarSupported = liquidGlassNativeTabBarSupported,
@@ -1530,12 +1652,6 @@ internal fun MainAppContent(
                             }
                         },
                         onTabSelected = ::handleRootTabClick,
-                        onAddonsSelected = {
-                            activateTab(AppScreenTab.Settings)
-                            navController.navigate(AddonsSettingsRoute(addonsSettingsTitle)) {
-                                launchSingleTop = true
-                            }
-                        },
                         onProfileSelected = { profile ->
                             if (profile.profileIndex != ProfileRepository.state.value.activeProfile?.profileIndex) {
                                 profileSwitchLoading = true
@@ -1743,6 +1859,9 @@ internal fun MainAppContent(
                         }
                     },
                 )
+                }
+                }
+                }
                 }
             }
             }

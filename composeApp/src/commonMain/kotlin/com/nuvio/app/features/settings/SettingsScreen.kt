@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,9 +18,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -891,10 +892,16 @@ private fun TabletSettingsScreen(
     val saveableStateHolder = rememberSaveableStateHolder()
 
     Row(modifier = Modifier.fillMaxSize()) {
+        // The category pane is a rounded slab instead of a square block, so it
+        // follows the curved content sheet and the navigation rail next to it.
         Surface(
             modifier = Modifier
                 .width(280.dp)
-                .fillMaxSize(),
+                .fillMaxHeight(),
+            shape = RoundedCornerShape(
+                topEnd = 24.dp,
+                bottomEnd = 24.dp,
+            ),
             color = MaterialTheme.colorScheme.surface,
         ) {
             Column(
@@ -912,7 +919,6 @@ private fun TabletSettingsScreen(
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 Spacer(modifier = Modifier.height(10.dp))
                 SettingsCategory.entries.forEach { category ->
